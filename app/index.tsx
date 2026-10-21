@@ -6,11 +6,13 @@ import { StatusBar } from 'expo-status-bar';
 import { ShieldCheck, BarChart3, Clock, ChevronRight } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function LandingScreen() {
     const router = useRouter();
+    const { colors, isDark } = useTheme();
 
     useEffect(() => {
         checkAuth();
@@ -30,30 +32,38 @@ export default function LandingScreen() {
     const FeatureItem = ({ icon: Icon, title, description, index }: any) => (
         <Animated.View
             entering={FadeInDown.delay(400 + index * 100).duration(800)}
-            style={styles.featureItem}
+            style={[
+                styles.featureItem,
+                {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border
+                }
+            ]}
         >
-            <View style={styles.iconContainer}>
-                <Icon color="#A78BFA" size={24} />
+            <View style={[styles.iconContainer, { backgroundColor: isDark ? 'rgba(138, 43, 226, 0.1)' : 'rgba(138, 43, 226, 0.08)' }]}>
+                <Icon color="#8A2BE2" size={24} />
             </View>
             <View style={styles.featureText}>
-                <Text style={styles.featureTitle}>{title}</Text>
-                <Text style={styles.featureDesc}>{description}</Text>
+                <Text style={[styles.featureTitle, { color: colors.text }]}>{title}</Text>
+                <Text style={[styles.featureDesc, { color: colors.textSecondary }]}>{description}</Text>
             </View>
         </Animated.View>
     );
 
     return (
-        <View style={styles.container}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar style={isDark ? "light" : "dark"} />
 
             {/* Background Image / Gradient */}
-            <View style={styles.bgWrapper}>
-                <LinearGradient
-                    colors={['#0B0B15', '#1A1A2E', '#0B0B15']}
-                    style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.glowTop} />
-            </View>
+            {isDark && (
+                <View style={styles.bgWrapper}>
+                    <LinearGradient
+                        colors={['#0B0B15', '#1A1A2E', '#0B0B15']}
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.glowTop} />
+                </View>
+            )}
 
             <View style={styles.content}>
                 {/* Hero Section */}
@@ -67,11 +77,11 @@ export default function LandingScreen() {
                         </LinearGradient>
                     </Animated.View>
 
-                    <Animated.Text entering={FadeInUp.delay(300).duration(1000)} style={styles.mainTitle}>
+                    <Animated.Text entering={FadeInUp.delay(300).duration(1000)} style={[styles.mainTitle, { color: colors.text }]}>
                         Cinema{"\n"}Partner
                     </Animated.Text>
 
-                    <Animated.Text entering={FadeInUp.delay(400).duration(1000)} style={styles.tagline}>
+                    <Animated.Text entering={FadeInUp.delay(400).duration(1000)} style={[styles.tagline, { color: colors.textSecondary }]}>
                         Empowering theaters with next-gen management and analytics.
                     </Animated.Text>
                 </View>
@@ -125,6 +135,12 @@ export default function LandingScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0B0B15' },
+    topBar: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        zIndex: 50,
+    },
     bgWrapper: { position: 'absolute', width, height },
     glowTop: {
         position: 'absolute',

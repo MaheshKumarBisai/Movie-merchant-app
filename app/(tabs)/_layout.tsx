@@ -1,25 +1,28 @@
 import { Tabs } from 'expo-router';
-import { Home, Armchair, Calendar, User, Film } from 'lucide-react-native';
-import { Colors } from '../../constants/Colors';
-import { useColorScheme } from 'react-native';
+import { Easing } from 'react-native';
+import { Home, Armchair, Calendar, User, Film, Building2 } from 'lucide-react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const { colors, isDark } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: 'shift',
+        sceneStyle: { backgroundColor: colors.background },
         tabBarStyle: {
-          backgroundColor: '#0B0B15', // Dark theme background
+          backgroundColor: colors.tabBarBg,
           borderTopWidth: 0,
+          borderTopColor: 'transparent',
           elevation: 0,
-          height: 90, // Increased for phone navigation spacing
-          paddingBottom: 30, // Increased to bring content above native nav
+          shadowOpacity: 0,
+          height: 90,
+          paddingBottom: 30,
         },
-        tabBarActiveTintColor: '#8A2BE2', // Purple
-        tabBarInactiveTintColor: '#6B7280', // Gray
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
@@ -35,8 +38,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="cinema"
         options={{
-          title: 'Cinema',
-          tabBarIcon: ({ color, size }) => <Film color={color} size={size} />,
+          title: 'Theatres',
+          tabBarIcon: ({ color, size }) => <Building2 color={color} size={size} />,
         }}
       />
       <Tabs.Screen

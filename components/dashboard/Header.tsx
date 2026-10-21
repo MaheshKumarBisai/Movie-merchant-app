@@ -1,20 +1,54 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import { Bell } from 'lucide-react-native';
 import { useProfile } from '../../hooks/useProfile';
 import { endpoints } from '../../config/api';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import { useTheme } from '../../context/ThemeContext';
 
 export const Header = () => {
     const { profile, loading } = useProfile();
     const router = useRouter();
+    const { colors, isDark } = useTheme();
     const [unreadCount, setUnreadCount] = useState(0);
+
+    const bellAnim = useRef(new Animated.Value(0)).current;
+
+    // Ring bell animation loop when unreadCount > 0
+    useEffect(() => {
+        let animation: Animated.CompositeAnimation | null = null;
+        if (unreadCount > 0) {
+            animation = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(bellAnim, { toValue: -18, duration: 75, useNativeDriver: true }),
+                    Animated.timing(bellAnim, { toValue: 18, duration: 75, useNativeDriver: true }),
+                    Animated.timing(bellAnim, { toValue: -14, duration: 65, useNativeDriver: true }),
+                    Animated.timing(bellAnim, { toValue: 14, duration: 65, useNativeDriver: true }),
+                    Animated.timing(bellAnim, { toValue: -8, duration: 55, useNativeDriver: true }),
+                    Animated.timing(bellAnim, { toValue: 8, duration: 55, useNativeDriver: true }),
+                    Animated.timing(bellAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+                    Animated.delay(1800), // Pause between ringing sequences
+                ])
+            );
+            animation.start();
+        } else {
+            bellAnim.setValue(0);
+        }
+
+        return () => {
+            if (animation) animation.stop();
+        };
+    }, [unreadCount]);
 
     useFocusEffect(
         useCallback(() => {
             fetchUnreadCount();
+            const interval = setInterval(() => {
+                fetchUnreadCount();
+            }, 8000); // Check every 8s for new booking notifications
+            return () => clearInterval(interval);
         }, [])
     );
 
@@ -62,12 +96,17 @@ export const Header = () => {
 
     const displayName = profile?.name || 'Merchant';
 
+    const bellRotation = bellAnim.interpolate({
+        inputRange: [-18, 0, 18],
+        outputRange: ['-18deg', '0deg', '18deg'],
+    });
+
     return (
         <View style={styles.container}>
             <View style={styles.profileContainer}>
                 <View style={styles.imageWrapper}>
                     {loading ? (
-                        <View style={[styles.profileImage, styles.loaderContainer]}>
+                        <View style={[styles.profileImage, styles.loaderContainer, { backgroundColor: colors.surface }]}>
                             <ActivityIndicator size="small" color="#8A2BE2" />
                         </View>
                     ) : (
@@ -76,20 +115,39 @@ export const Header = () => {
                             style={styles.profileImage}
                         />
                     )}
-                    <View style={styles.onlineIndicator} />
                 </View>
                 <View style={styles.textContainer}>
-                    <Text style={styles.roleText}>CINEMA PARTNER</Text>
-                    <Text style={styles.greetingText}>{getGreeting()}, {displayName}</Text>
+                    <Text style={[styles.greetingText, { color: colors.text }]}>{getGreeting()}, {displayName}</Text>
                 </View>
             </View>
 
-            <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}>
-                <View>
-                    <Bell color="#FFF" size={20} />
-                    {unreadCount > 0 && <View style={styles.notificationBadge} />}
-                </View>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity 
+                    style={[
+                        styles.iconButton, 
+                        { 
+                            backgroundColor: colors.surface, 
+                            borderColor: colors.border,
+                            borderWidth: 1,
+                        }
+                    ]} 
+                    onPress={() => router.push('/notifications')}
+                    activeOpacity={0.8}
+                >
+                    <View style={styles.bellWrapper}>
+                        <Animated.View style={{ transform: [{ rotate: bellRotation }] }}>
+                            <Bell color={unreadCount > 0 ? '#8A2BE2' : colors.text} size={20} />
+                        </Animated.View>
+                        {unreadCount > 0 && (
+                            <View style={[styles.notificationBadge, { borderColor: colors.surface }]}>
+                                <Text style={styles.badgeText}>
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
@@ -147,24 +205,43 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     iconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 42,
+        height: 42,
+        borderRadius: 21,
         backgroundColor: '#1F1F2E',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: '#2D2D3F',
     },
+    bellWrapper: {
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     notificationBadge: {
         position: 'absolute',
-        top: -2,
-        right: -2,
-        width: 10,
-        height: 10,
-        borderRadius: 5,
+        top: -7,
+        right: -9,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
         backgroundColor: '#EF4444',
-        borderWidth: 2,
-        borderColor: '#1F1F2E',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 1.5,
+        elevation: 3,
+        shadowColor: '#EF4444',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.5,
+        shadowRadius: 2,
+    },
+    badgeText: {
+        color: '#FFFFFF',
+        fontSize: 10,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        includeFontPadding: false,
     },
 });

@@ -24,6 +24,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useProfile } from '../../hooks/useProfile';
 import { endpoints } from '../../config/api';
+import { uploadImageViaXHR } from '../../utils/upload';
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
 
 interface ProfileItemProps {
     icon: LucideIcon;
@@ -42,6 +45,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const { colors, isDark } = useTheme();
     const { profile, loading, updating, error, refetch, updateProfile } = useProfile();
 
     // Edit Modal State
@@ -107,32 +111,9 @@ export default function ProfileScreen() {
     const uploadImage = async (uri: string) => {
         setUploading(true);
         try {
-            const formData = new FormData();
-            const filename = uri.split('/').pop() || 'photo.jpg';
-            const match = /\.(\w+)$/.exec(filename);
-            let type = 'image/jpeg';
-            if (match) {
-                const ext = match[1].toLowerCase();
-                type = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-            }
-
-            // @ts-ignore
-            formData.append('file', { uri, name: filename, type });
-            formData.append('folder', 'profiles/merchants');
-
             const token = await SecureStore.getItemAsync('token');
-            const response = await fetch(endpoints.uploadImage, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-            });
-
-            if (!response.ok) throw new Error('Failed to upload image');
-
-            const data = await response.json();
-            return data.url;
+            const url = await uploadImageViaXHR(endpoints.uploadImage, token, uri, 'profiles/merchants');
+            return url;
         } catch (err) {
             console.error('Upload Error:', err);
             throw err;
@@ -164,30 +145,30 @@ export default function ProfileScreen() {
 
     const ProfileItem = ({ icon: Icon, label, value, onPress, isLast, color = "#FFF" }: ProfileItemProps) => (
         <TouchableOpacity
-            style={[styles.profileItem, isLast && styles.noBorder]}
+            style={[styles.profileItem, { borderBottomColor: colors.border }, isLast && styles.noBorder]}
             onPress={onPress}
             disabled={!onPress}
         >
             <View style={styles.itemLeft}>
-                <View style={[styles.iconContainer, { backgroundColor: color + '15' }]}>
+                <View style={[styles.iconContainer, { backgroundColor: isDark ? color + '15' : '#F3E8FF' }]}>
                     <Icon size={20} color={color} />
                 </View>
                 <View>
-                    <Text style={styles.itemLabel}>{label}</Text>
-                    {value && <Text style={styles.itemValue}>{value}</Text>}
+                    <Text style={[styles.itemLabel, { color: colors.textSecondary }]}>{label}</Text>
+                    {value && <Text style={[styles.itemValue, { color: colors.text }]}>{value}</Text>}
                 </View>
             </View>
-            {onPress && <ChevronRight size={20} color="#4B5563" />}
+            {onPress && <ChevronRight size={20} color={colors.textMuted} />}
         </TouchableOpacity>
     );
 
     const SectionHeader = ({ title }: SectionHeaderProps) => (
-        <Text style={styles.sectionHeader}>{title}</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>{title}</Text>
     );
 
     if (loading && !profile) {
         return (
-            <View style={[styles.container, styles.center]}>
+            <View style={[styles.container, styles.center, { backgroundColor: colors.background }]}>
                 <ActivityIndicator size="large" color="#8A2BE2" />
             </View>
         );
@@ -207,7 +188,12 @@ export default function ProfileScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            {/* Fixed Header without outline */}
+            <View style={styles.fixedHeader}>
+                <Text style={[styles.screenTitle, { color: colors.text }]}>Profile</Text>
+            </View>
+
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
@@ -221,21 +207,27 @@ export default function ProfileScreen() {
                         >
                             <Image
                                 source={{ uri: getAvatarUri(profile?.avatar_url) }}
-                                style={styles.avatarImage}
+                                style={[styles.avatarImage, { borderColor: colors.background }]}
                             />
                         </LinearGradient>
-                        <TouchableOpacity style={styles.editAvatarBtn} onPress={openEditModal}>
+                        <TouchableOpacity style={[styles.editAvatarBtn, { borderColor: colors.background }]} onPress={openEditModal}>
                             <Edit2 size={14} color="#FFF" />
                         </TouchableOpacity>
                     </View>
-                    <Text style={styles.userName}>{profile?.name || profile?.email || 'Merchant'}</Text>
+                    <Text style={[styles.userName, { color: colors.text }]}>{profile?.name || profile?.email || 'Merchant'}</Text>
+                </View>
+
+                {/* Appearance Settings */}
+                <SectionHeader title="APPEARANCE" />
+                <View style={{ marginBottom: 20 }}>
+                    <ThemeToggle variant="row" />
                 </View>
 
                 {/* Personal Info Section */}
                 <View style={styles.sectionRow}>
                     <SectionHeader title="PERSONAL INFO" />
                 </View>
-                <View style={styles.sectionCard}>
+                <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <ProfileItem
                         icon={User}
                         label="Full Name"
@@ -259,7 +251,7 @@ export default function ProfileScreen() {
 
                 {/* Business Management */}
                 <SectionHeader title="BUSINESS MANAGEMENT" />
-                <View style={styles.sectionCard}>
+                <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <ProfileItem
                         icon={Building2}
                         label="Theatre Settings"
@@ -275,14 +267,15 @@ export default function ProfileScreen() {
                     />
                 </View>
 
-
                 {/* Logout Button */}
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                    <LogOut size={20} color="#FFF" style={{ marginRight: 10 }} />
-                    <Text style={styles.logoutText}>Log Out Account</Text>
+                <TouchableOpacity
+                    style={[styles.logoutButton, { backgroundColor: colors.surface }]}
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
+                >
+                    <LogOut size={20} color={isDark ? '#FFFFFF' : '#000000'} style={{ marginRight: 10 }} />
+                    <Text style={[styles.logoutText, { color: '#EF4444' }]}>Log out</Text>
                 </TouchableOpacity>
-
-                <Text style={styles.versionText}>Version 1.2.0 • Build 42</Text>
             </ScrollView >
 
             {/* Edit Profile Modal */}
@@ -296,58 +289,58 @@ export default function ProfileScreen() {
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.modalOverlay}
                 >
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.surface, borderTopColor: colors.border, borderWidth: 1 }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit Profile</Text>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Profile</Text>
                             <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                                <X size={24} color="#9CA3AF" />
+                                <X size={24} color={colors.textSecondary} />
                             </TouchableOpacity>
                         </View>
 
                         <ScrollView showsVerticalScrollIndicator={false}>
                             <View style={styles.modalBody}>
-                                <Text style={styles.inputLabel}>FULL NAME</Text>
+                                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>FULL NAME</Text>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                                     value={editData.name}
                                     onChangeText={(t) => setEditData({ ...editData, name: t })}
                                     placeholder="Enter your name"
-                                    placeholderTextColor="#4B5563"
+                                    placeholderTextColor={colors.textSecondary}
                                 />
 
-                                <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
+                                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>EMAIL ADDRESS</Text>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                                     value={editData.email}
                                     onChangeText={(t) => setEditData({ ...editData, email: t })}
                                     placeholder="Enter your email"
-                                    placeholderTextColor="#4B5563"
+                                    placeholderTextColor={colors.textSecondary}
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                 />
 
-                                <Text style={styles.inputLabel}>MOBILE NUMBER</Text>
+                                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>MOBILE NUMBER</Text>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                                     value={editData.mobile}
                                     onChangeText={(t) => setEditData({ ...editData, mobile: t })}
                                     placeholder="Enter mobile number"
-                                    placeholderTextColor="#4B5563"
+                                    placeholderTextColor={colors.textSecondary}
                                     keyboardType="phone-pad"
                                 />
 
-                                <Text style={styles.inputLabel}>PROFILE PHOTO</Text>
-                                <View style={styles.photoSelectionContainer}>
+                                <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>PROFILE PHOTO</Text>
+                                <View style={[styles.photoSelectionContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
                                     <Image
                                         source={{ uri: getAvatarUri(selectedImage || profile?.avatar_url) }}
                                         style={styles.previewImage}
                                     />
                                     <View style={styles.photoButtons}>
-                                        <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
-                                            <Text style={styles.photoBtnText}>Gallery</Text>
+                                        <TouchableOpacity style={[styles.photoBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={pickImage}>
+                                            <Text style={[styles.photoBtnText, { color: colors.text }]}>Gallery</Text>
                                         </TouchableOpacity>
-                                        <TouchableOpacity style={styles.photoBtn} onPress={takePhoto}>
-                                            <Text style={styles.photoBtnText}>Camera</Text>
+                                        <TouchableOpacity style={[styles.photoBtn, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={takePhoto}>
+                                            <Text style={[styles.photoBtnText, { color: colors.text }]}>Camera</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -355,10 +348,10 @@ export default function ProfileScreen() {
 
                             <View style={styles.modalFooter}>
                                 <TouchableOpacity
-                                    style={styles.cancelBtn}
+                                    style={[styles.cancelBtn, { backgroundColor: isDark ? '#2D2D3F' : '#E5E7EB' }]}
                                     onPress={() => setEditModalVisible(false)}
                                 >
-                                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                                    <Text style={[styles.cancelBtnText, { color: colors.text }]}>Cancel</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.saveBtn}
@@ -385,8 +378,19 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0B0B15' },
+    fixedHeader: {
+        paddingHorizontal: width * 0.05,
+        paddingTop: 8,
+        paddingBottom: 6,
+        borderBottomWidth: 0, // No outline
+    },
+    screenTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        letterSpacing: 0.3,
+    },
     center: { justifyContent: 'center', alignItems: 'center' },
-    scrollContent: { paddingHorizontal: width * 0.05, paddingVertical: 20, paddingBottom: 40 },
+    scrollContent: { paddingHorizontal: width * 0.05, paddingVertical: 10, paddingBottom: 40 },
     header: {
         alignItems: 'center',
         marginBottom: 32,
@@ -535,25 +539,17 @@ const styles = StyleSheet.create({
     },
     logoutButton: {
         flexDirection: 'row',
-        backgroundColor: '#EF444420',
-        borderWidth: 1,
-        borderColor: '#EF4444',
         borderRadius: 16,
-        height: 56,
+        height: 54,
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: 8,
+        borderWidth: 0,
     },
     logoutText: {
         color: '#EF4444',
         fontSize: 16,
-        fontWeight: 'bold',
-    },
-    versionText: {
-        textAlign: 'center',
-        color: '#4B5563',
-        fontSize: 12,
-        marginTop: 32,
+        fontWeight: '600',
     },
     modalOverlay: {
         flex: 1,
@@ -565,7 +561,8 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
-        maxHeight: '90%',
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        maxHeight: '85%',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -602,7 +599,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 12,
         marginTop: 24,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     },
     cancelBtn: {
         flex: 1,

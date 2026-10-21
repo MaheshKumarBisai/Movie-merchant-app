@@ -8,15 +8,17 @@ import { QuickActions } from '../../components/dashboard/QuickActions';
 
 import { Text, ActivityIndicator, RefreshControl } from 'react-native';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
     const { stats, loading, error, refetch } = useDashboardStats();
+    const { colors } = useTheme();
 
     if (error) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
                 <Header />
                 <ScrollView 
                     contentContainerStyle={[styles.content, styles.errorContainer]}
@@ -38,13 +40,16 @@ export default function HomeScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            {/* Fixed Header without outline */}
+            <View style={styles.fixedHeader}>
+                <Header />
+            </View>
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.content}
                 refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor="#8A2BE2" />}
             >
-                <Header />
                 <RevenueCard
                     amount={displayStats.revenue_today}
                 />
@@ -60,7 +65,16 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0B0B15' },
-    content: { padding: width * 0.05 },
+    fixedHeader: {
+        paddingHorizontal: width * 0.05,
+        paddingTop: 8,
+        borderBottomWidth: 0, // No outline
+    },
+    content: { 
+        paddingHorizontal: width * 0.05,
+        paddingTop: 8,
+        paddingBottom: 40 
+    },
     errorContainer: {
         flex: 1,
         justifyContent: 'center',

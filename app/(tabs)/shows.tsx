@@ -5,11 +5,14 @@ import { Search, Calendar, Monitor, Clock, X, Plus, Film, Check, Edit, Trash2, P
 import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
 import { endpoints } from '../../config/api';
+import { uploadImageViaXHR } from '../../utils/upload';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ShowsScreen() {
     const router = useRouter();
+    const { colors, isDark } = useTheme();
 
     // Data State
     const [searchQuery, setSearchQuery] = useState('');
@@ -112,44 +115,14 @@ export default function ShowsScreen() {
             // Upload poster to S3
             let posterUrl = newMovie.poster;
             if (posterUrl && (posterUrl.startsWith('file://') || posterUrl.startsWith('content://'))) {
-                // Local file — upload directly
-                const formData = new FormData();
-                const filename = posterUrl.split('/').pop() || 'poster.jpg';
-                const match = /\.(\w+)$/.exec(filename);
-                const type = match ? `image/${match[1]}` : 'image/jpeg';
-                // @ts-ignore
-                formData.append('file', { uri: posterUrl, name: filename, type });
-                formData.append('folder', 'profiles/merchant/movies');
-                const uploadResponse = await fetch(endpoints.uploadImage, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                if (!uploadResponse.ok) throw new Error('Failed to upload poster image');
-                const uploadData = await uploadResponse.json();
-                posterUrl = uploadData.url;
-            } else if (posterUrl && (posterUrl.startsWith('http://') || posterUrl.startsWith('https://'))) {
-                // External URL — fetch and re-upload to S3
+                // Local file — upload directly via XHR to prevent WinterCG fetch FormDataPart errors
                 try {
-                    const imgResponse = await fetch(posterUrl);
-                    const blob = await imgResponse.blob();
-                    const formData = new FormData();
-                    const filename = posterUrl.split('/').pop()?.split('?')[0] || 'poster.jpg';
-                    // @ts-ignore
-                    formData.append('file', { uri: posterUrl, name: filename, type: blob.type || 'image/jpeg' });
-                    formData.append('folder', 'profiles/merchant/movies');
-                    const uploadResponse = await fetch(endpoints.uploadImage, {
-                        method: 'POST',
-                        body: formData,
-                        headers: { 'Authorization': `Bearer ${token}` },
-                    });
-                    if (uploadResponse.ok) {
-                        const uploadData = await uploadResponse.json();
-                        posterUrl = uploadData.url;
-                    }
-                    // If URL re-upload fails, keep original URL
-                } catch {
-                    // Keep original URL if re-upload fails
+                    posterUrl = await uploadImageViaXHR(endpoints.uploadImage, token, posterUrl, 'profiles/merchant/movies');
+                } catch (uploadErr: any) {
+                    console.error('Poster upload failed:', uploadErr);
+                    Alert.alert('Upload Failed', uploadErr.message || 'Failed to upload poster image');
+                    setSubmitting(false);
+                    return;
                 }
             }
 
@@ -366,16 +339,21 @@ export default function ShowsScreen() {
     // ─── RENDER ─────────────────────────────────────────────────────
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            {/* Fixed Header without outline */}
+            <View style={styles.fixedHeader}>
+                <Text style={[styles.screenTitle, { color: colors.text }]}>Movies & Shows</Text>
+            </View>
+
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
                 {/* Search */}
-                <View style={[styles.searchContainer, { marginTop: 20 }]}>
-                    <Search size={18} color="#6B7280" style={{ marginRight: 10 }} />
+                <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 10 }]}>
+                    <Search size={18} color="#8A2BE2" style={{ marginRight: 10 }} />
                     <TextInput
-                        style={styles.searchInput}
+                        style={[styles.searchInput, { color: colors.text }]}
                         placeholder="Search your inventory..."
-                        placeholderTextColor="#6B7280"
+                        placeholderTextColor={colors.textSecondary}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
@@ -389,7 +367,7 @@ export default function ShowsScreen() {
 
                 {/* Section: Active Screening */}
                 <View style={styles.sectionRow}>
-                    <Text style={styles.sectionTitle}>ACTIVE SCREENING</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACTIVE SCREENING</Text>
                     <View style={styles.countBadge}>
                         <Text style={styles.countBadgeText}>
                             {filteredMovies.filter(m => m.status === 'ACTIVE' || !m.status).length} MOVIES
@@ -401,18 +379,18 @@ export default function ShowsScreen() {
                     <ActivityIndicator size="large" color="#8A2BE2" style={{ marginTop: 40 }} />
                 ) : (
                     filteredMovies.filter(m => m.status === 'ACTIVE' || !m.status).map(movie => (
-                        <View key={movie.id} style={styles.movieCard}>
+                        <View key={movie.id} style={[styles.movieCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <View style={styles.movieCardTop}>
                                 {movie.poster_url ? (
                                     <Image source={{ uri: movie.poster_url }} style={styles.moviePoster} />
                                 ) : (
-                                    <View style={[styles.moviePoster, { backgroundColor: '#2D2D3F', alignItems: 'center', justifyContent: 'center' }]}>
-                                        <Film size={24} color="#6B7280" />
+                                    <View style={[styles.moviePoster, { backgroundColor: isDark ? '#2D2D3F' : '#E5E7EB', alignItems: 'center', justifyContent: 'center' }]}>
+                                        <Film size={24} color="#8A2BE2" />
                                     </View>
                                 )}
                                 <View style={styles.movieInfo}>
-                                    <Text style={styles.movieTitle}>{movie.title}</Text>
-                                    <Text style={styles.movieMeta}>
+                                    <Text style={[styles.movieTitle, { color: colors.text }]}>{movie.title}</Text>
+                                    <Text style={[styles.movieMeta, { color: colors.textSecondary }]}>
                                         {movie.duration_minutes} min • {movie.language}
                                     </Text>
                                     <View style={styles.movieActions}>
@@ -427,9 +405,9 @@ export default function ShowsScreen() {
                                     </View>
                                 </View>
                             </View>
-                            <TouchableOpacity style={styles.editShowtimesBtn} onPress={() => openEditShowtimes(movie)}>
-                                <Calendar size={16} color="#C084FC" />
-                                <Text style={styles.editShowtimesBtnText}>Edit Showtimes</Text>
+                            <TouchableOpacity style={[styles.editShowtimesBtn, { backgroundColor: isDark ? 'rgba(138, 43, 226, 0.15)' : 'rgba(138, 43, 226, 0.08)' }]} onPress={() => openEditShowtimes(movie)}>
+                                <Calendar size={16} color="#8A2BE2" />
+                                <Text style={[styles.editShowtimesBtnText, { color: '#8A2BE2' }]}>Edit Showtimes</Text>
                             </TouchableOpacity>
                         </View>
                     ))
@@ -438,7 +416,7 @@ export default function ShowsScreen() {
                 {/* Section: Coming Soon */}
                 {filteredMovies.filter(m => m.status === 'COMING_SOON').length > 0 && (
                     <View style={[styles.sectionRow, { marginTop: 24 }]}>
-                        <Text style={styles.sectionTitle}>COMING SOON</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>COMING SOON</Text>
                         <View style={styles.countBadge}>
                             <Text style={styles.countBadgeText}>
                                 {filteredMovies.filter(m => m.status === 'COMING_SOON').length} MOVIES
@@ -448,18 +426,18 @@ export default function ShowsScreen() {
                 )}
 
                 {!loading && filteredMovies.filter(m => m.status === 'COMING_SOON').map(movie => (
-                    <View key={movie.id} style={styles.movieCard}>
+                    <View key={movie.id} style={[styles.movieCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <View style={styles.movieCardTop}>
                             {movie.poster_url ? (
                                 <Image source={{ uri: movie.poster_url }} style={styles.moviePoster} />
                             ) : (
-                                <View style={[styles.moviePoster, { backgroundColor: '#2D2D3F', alignItems: 'center', justifyContent: 'center' }]}>
-                                    <Film size={24} color="#6B7280" />
+                                <View style={[styles.moviePoster, { backgroundColor: isDark ? '#2D2D3F' : '#E5E7EB', alignItems: 'center', justifyContent: 'center' }]}>
+                                    <Film size={24} color="#8A2BE2" />
                                 </View>
                             )}
                             <View style={styles.movieInfo}>
-                                <Text style={styles.movieTitle}>{movie.title}</Text>
-                                <Text style={styles.movieMeta}>
+                                <Text style={[styles.movieTitle, { color: colors.text }]}>{movie.title}</Text>
+                                <Text style={[styles.movieMeta, { color: colors.textSecondary }]}>
                                     {movie.duration_minutes} min • {movie.language}
                                 </Text>
                                 <View style={styles.movieActions}>
@@ -474,6 +452,10 @@ export default function ShowsScreen() {
                                 </View>
                             </View>
                         </View>
+                        <TouchableOpacity style={[styles.editShowtimesBtn, { backgroundColor: isDark ? 'rgba(138, 43, 226, 0.15)' : 'rgba(138, 43, 226, 0.08)' }]} onPress={() => openEditShowtimes(movie)}>
+                            <Calendar size={16} color="#8A2BE2" />
+                            <Text style={[styles.editShowtimesBtnText, { color: '#8A2BE2' }]}>Edit Showtimes</Text>
+                        </TouchableOpacity>
                     </View>
                 ))}
 
@@ -481,9 +463,9 @@ export default function ShowsScreen() {
 
             {/* ─── Add / Edit Movie Modal ───────────────────────────── */}
             <Modal visible={showAddMovie} animationType="slide" transparent={false} statusBarTranslucent={true}>
-                <View style={[styles.modalContainer, { paddingTop: Platform.OS === 'ios' ? 0 : 40 }]}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>{isEditing ? 'Edit Movie' : 'Add New Movie'}</Text>
+                <View style={[styles.modalContainer, { backgroundColor: colors.background, paddingTop: Platform.OS === 'ios' ? 0 : 40 }]}>
+                    <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>{isEditing ? 'Edit Movie' : 'Add New Movie'}</Text>
                         <TouchableOpacity onPress={() => { setShowAddMovie(false); resetMovieForm(); }}>
                             <Text style={styles.closeText}>Cancel</Text>
                         </TouchableOpacity>
@@ -501,78 +483,78 @@ export default function ShowsScreen() {
                                 {newMovie.poster ? (
                                     <Image source={{ uri: newMovie.poster }} style={{ width: 120, height: 180, borderRadius: 12 }} resizeMode="cover" />
                                 ) : (
-                                    <View style={styles.posterPlaceholder}>
-                                        <Film size={40} color="#4B5563" />
-                                        <Text style={styles.posterText}>Poster Preview</Text>
+                                    <View style={[styles.posterPlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                        <Film size={40} color="#8A2BE2" />
+                                        <Text style={[styles.posterText, { color: colors.textSecondary }]}>Poster Preview</Text>
                                     </View>
                                 )}
                             </View>
 
-                            <Text style={styles.inputLabel}>Movie Title *</Text>
-                            <TextInput style={styles.modalInput} value={newMovie.title} onChangeText={t => setNewMovie({ ...newMovie, title: t })} placeholder="e.g. Inception" placeholderTextColor="#4B5563" />
+                            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Movie Title *</Text>
+                            <TextInput style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]} value={newMovie.title} onChangeText={t => setNewMovie({ ...newMovie, title: t })} placeholder="e.g. Inception" placeholderTextColor={colors.textSecondary} />
 
                             <View style={{ flexDirection: 'row', gap: 12 }}>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.inputLabel}>Language *</Text>
-                                    <TextInput style={styles.modalInput} value={newMovie.language} onChangeText={t => setNewMovie({ ...newMovie, language: t })} placeholder="e.g. English" placeholderTextColor="#4B5563" />
+                                    <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Language *</Text>
+                                    <TextInput style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]} value={newMovie.language} onChangeText={t => setNewMovie({ ...newMovie, language: t })} placeholder="e.g. English" placeholderTextColor={colors.textSecondary} />
                                 </View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.inputLabel}>Duration (min) *</Text>
-                                    <TextInput style={styles.modalInput} value={newMovie.duration} onChangeText={t => setNewMovie({ ...newMovie, duration: t })} placeholder="148" placeholderTextColor="#4B5563" keyboardType="numeric" />
+                                    <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Duration (min) *</Text>
+                                    <TextInput style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]} value={newMovie.duration} onChangeText={t => setNewMovie({ ...newMovie, duration: t })} placeholder="148" placeholderTextColor={colors.textSecondary} keyboardType="numeric" />
                                 </View>
                             </View>
 
-                            <Text style={styles.inputLabel}>Description</Text>
-                            <TextInput style={[styles.modalInput, { height: 80 }]} multiline value={newMovie.description} onChangeText={t => setNewMovie({ ...newMovie, description: t })} placeholder="Movie plot..." placeholderTextColor="#4B5563" />
+                            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Description</Text>
+                            <TextInput style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, height: 80 }]} multiline value={newMovie.description} onChangeText={t => setNewMovie({ ...newMovie, description: t })} placeholder="Movie plot..." placeholderTextColor={colors.textSecondary} />
 
-                            <Text style={styles.inputLabel}>Cast (comma separated)</Text>
-                            <TextInput style={styles.modalInput} value={newMovie.cast} onChangeText={t => setNewMovie({ ...newMovie, cast: t })} placeholder="Actor 1, Actor 2..." placeholderTextColor="#4B5563" />
+                            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Cast (comma separated)</Text>
+                            <TextInput style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]} value={newMovie.cast} onChangeText={t => setNewMovie({ ...newMovie, cast: t })} placeholder="Actor 1, Actor 2..." placeholderTextColor={colors.textSecondary} />
 
-                            <Text style={styles.inputLabel}>Poster Image</Text>
+                            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Poster Image</Text>
                             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
                                 <TouchableOpacity
-                                    style={[styles.primaryBtn, { flex: 1, backgroundColor: '#374151' }]}
+                                    style={[styles.primaryBtn, { flex: 1, backgroundColor: isDark ? '#374151' : '#F3E8FF', marginTop: 0 }]}
                                     onPress={pickPosterImage}
                                 >
-                                    <Text style={styles.primaryBtnText}>Pick from Gallery</Text>
+                                    <Text style={[styles.primaryBtnText, { color: isDark ? '#FFF' : '#8A2BE2' }]}>Pick from Gallery</Text>
                                 </TouchableOpacity>
                             </View>
-                            <TextInput style={styles.modalInput} value={newMovie.poster} onChangeText={t => setNewMovie({ ...newMovie, poster: t })} placeholder="Or paste URL: https://..." placeholderTextColor="#4B5563" />
+                            <TextInput style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]} value={newMovie.poster} onChangeText={t => setNewMovie({ ...newMovie, poster: t })} placeholder="Or paste URL: https://..." placeholderTextColor={colors.textSecondary} />
 
-                            <Text style={styles.inputLabel}>Movie Status</Text>
+                            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Movie Status</Text>
                             <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
                                 <TouchableOpacity
-                                    style={[styles.statusOption, newMovie.status === 'ACTIVE' && styles.statusOptionActive]}
+                                    style={[styles.statusOption, { backgroundColor: colors.surface, borderColor: colors.border }, newMovie.status === 'ACTIVE' && styles.statusOptionActive]}
                                     onPress={() => setNewMovie({ ...newMovie, status: 'ACTIVE' })}
                                 >
-                                    <Text style={[styles.statusOptionText, newMovie.status === 'ACTIVE' && { color: '#FFF' }]}>Active Screening</Text>
+                                    <Text style={[styles.statusOptionText, newMovie.status === 'ACTIVE' ? { color: '#FFF' } : { color: colors.textSecondary }]}>Active Screening</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.statusOption, newMovie.status === 'COMING_SOON' && styles.statusOptionActive]}
+                                    style={[styles.statusOption, { backgroundColor: colors.surface, borderColor: colors.border }, newMovie.status === 'COMING_SOON' && styles.statusOptionActive]}
                                     onPress={() => setNewMovie({ ...newMovie, status: 'COMING_SOON' })}
                                 >
-                                    <Text style={[styles.statusOptionText, newMovie.status === 'COMING_SOON' && { color: '#FFF' }]}>Coming Soon</Text>
+                                    <Text style={[styles.statusOptionText, newMovie.status === 'COMING_SOON' ? { color: '#FFF' } : { color: colors.textSecondary }]}>Coming Soon</Text>
                                 </TouchableOpacity>
                             </View>
 
                             {newMovie.status === 'COMING_SOON' && (
-                                <View style={{ marginBottom: 24, padding: 16, backgroundColor: 'rgba(138, 43, 226, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: '#2D2D3F' }}>
-                                    <Text style={[styles.inputLabel, { marginTop: 0 }]}>Release Date (YYYY-MM-DD)</Text>
+                                <View style={{ marginBottom: 24, padding: 16, backgroundColor: isDark ? 'rgba(138, 43, 226, 0.05)' : '#F9F5FF', borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+                                    <Text style={[styles.inputLabel, { color: colors.textSecondary, marginTop: 0 }]}>Release Date (YYYY-MM-DD)</Text>
                                     <TextInput
-                                        style={styles.modalInput}
+                                        style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                                         value={newMovie.releaseDate}
                                         onChangeText={t => setNewMovie({ ...newMovie, releaseDate: t })}
                                         placeholder="e.g. 2027-12-15"
-                                        placeholderTextColor="#4B5563"
+                                        placeholderTextColor={colors.textSecondary}
                                     />
-                                    <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 8 }}>
+                                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 8 }}>
                                         When will audiences be able to book tickets for this?
                                     </Text>
                                 </View>
                             )}
 
                             <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveMovie} disabled={submitting}>
-                                {submitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryBtnText}>{isEditing ? 'Save Changes' : 'Add Movie to Database'}</Text>}
+                                {submitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryBtnText}>{isEditing ? 'Save Changes' : 'Add Movie'}</Text>}
                             </TouchableOpacity>
                         </ScrollView>
                     </KeyboardAvoidingView>
@@ -581,10 +563,10 @@ export default function ShowsScreen() {
 
             {/* ─── Edit Showtimes Modal ──────────────────────────────── */}
             <Modal visible={showEditShowtimes} animationType="slide" transparent={false} statusBarTranslucent={true}>
-                <View style={[styles.modalContainer, { paddingTop: Platform.OS === 'ios' ? 0 : 40 }]}>
-                    <View style={styles.modalHeader}>
+                <View style={[styles.modalContainer, { backgroundColor: colors.background, paddingTop: Platform.OS === 'ios' ? 0 : 40 }]}>
+                    <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                         <View>
-                            <Text style={styles.modalTitle}>Schedule Showtimes</Text>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Schedule Showtimes</Text>
                             {selectedMovie && <Text style={styles.modalSubtitle}>{selectedMovie.title}</Text>}
                         </View>
                         <TouchableOpacity onPress={() => setShowEditShowtimes(false)}>
@@ -602,32 +584,32 @@ export default function ShowsScreen() {
                         >
 
                             {/* Screen Selection */}
-                            <Text style={styles.label}>SELECT SCREEN</Text>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>SELECT SCREEN</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
                                 {screens.map(screen => (
                                     <TouchableOpacity
                                         key={screen.id}
-                                        style={[styles.screenCard, selectedScreenId === screen.id && styles.activeScreenCard]}
+                                        style={[styles.screenCard, { backgroundColor: colors.surface, borderColor: colors.border }, selectedScreenId === screen.id && styles.activeScreenCard]}
                                         onPress={() => setSelectedScreenId(screen.id)}
                                     >
-                                        <Monitor size={20} color={selectedScreenId === screen.id ? '#FFF' : '#A855F7'} style={{ marginBottom: 8 }} />
-                                        <Text style={[styles.screenName, selectedScreenId === screen.id && { color: '#FFF' }]}>{screen.name}</Text>
-                                        <Text style={styles.screenTech}>{screen.technology || 'Standard'}</Text>
+                                        <Monitor size={20} color={selectedScreenId === screen.id ? '#8A2BE2' : colors.textSecondary} style={{ marginBottom: 8 }} />
+                                        <Text style={[styles.screenName, { color: colors.text }, selectedScreenId === screen.id && { color: '#8A2BE2' }]}>{screen.name}</Text>
+                                        <Text style={[styles.screenTech, { color: colors.textSecondary }]}>{screen.technology || 'Standard'}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
 
                             {/* Date Selection */}
-                            <Text style={styles.label}>SELECT DATES ({selectedDates.length})</Text>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>SELECT DATES ({selectedDates.length})</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
                                 {generateNextDays().map((date, index) => {
                                     const isSelected = selectedDates.some(d => d.toDateString() === date.toDateString());
                                     return (
-                                        <TouchableOpacity key={index} style={[styles.dateCard, isSelected && styles.activeDateCard]} onPress={() => toggleDate(date)}>
-                                            <Text style={[styles.dateDay, isSelected && styles.activeDateText]}>
+                                        <TouchableOpacity key={index} style={[styles.dateCard, { backgroundColor: colors.surface, borderColor: colors.border }, isSelected && styles.activeDateCard]} onPress={() => toggleDate(date)}>
+                                            <Text style={[styles.dateDay, { color: colors.textSecondary }, isSelected && styles.activeDateText]}>
                                                 {date.toLocaleString('default', { weekday: 'short' })}
                                             </Text>
-                                            <Text style={[styles.dateNum, isSelected && styles.activeDateText]}>
+                                            <Text style={[styles.dateNum, { color: colors.text }, isSelected && styles.activeDateText]}>
                                                 {date.getDate()}
                                             </Text>
                                         </TouchableOpacity>
@@ -636,13 +618,13 @@ export default function ShowsScreen() {
                             </ScrollView>
 
                             {/* Time Selection */}
-                            <Text style={styles.label}>SHOW TIMINGS ({selectedTimes.length})</Text>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>SHOW TIMINGS ({selectedTimes.length})</Text>
                             <View style={styles.timeGrid}>
                                 {generateCommonTimes().map(time => {
                                     const isSelected = selectedTimes.includes(time);
                                     return (
-                                        <TouchableOpacity key={time} style={[styles.timeChip, isSelected && styles.activeTimeChip]} onPress={() => toggleTime(time)}>
-                                            <Text style={[styles.timeText, isSelected && { color: '#FFF' }]}>{time}</Text>
+                                        <TouchableOpacity key={time} style={[styles.timeChip, { backgroundColor: colors.surface, borderColor: colors.border }, isSelected && styles.activeTimeChip]} onPress={() => toggleTime(time)}>
+                                            <Text style={[styles.timeText, { color: colors.textSecondary }, isSelected && { color: '#FFF' }]}>{time}</Text>
                                             {isSelected && <Check size={14} color="#FFF" style={{ marginLeft: 4 }} />}
                                         </TouchableOpacity>
                                     );
@@ -652,9 +634,9 @@ export default function ShowsScreen() {
                             {/* Custom Time */}
                             <View style={styles.timeInputContainer}>
                                 <TextInput
-                                    style={styles.timeInput}
+                                    style={[styles.timeInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                                     placeholder="Custom HH:MM"
-                                    placeholderTextColor="#6B7280"
+                                    placeholderTextColor={colors.textSecondary}
                                     value={customTime}
                                     onChangeText={setCustomTime}
                                     keyboardType="numbers-and-punctuation"
@@ -666,7 +648,7 @@ export default function ShowsScreen() {
                             </View>
 
                             {/* Language Selection */}
-                            <Text style={styles.label}>SHOW LANGUAGE</Text>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>SHOW LANGUAGE</Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 }}>
                                 {Array.from(new Set([
                                     selectedMovie?.language,
@@ -674,34 +656,34 @@ export default function ShowsScreen() {
                                 ])).filter(Boolean).map((lang: any) => (
                                     <TouchableOpacity
                                         key={lang}
-                                        style={[styles.languageChip, selectedShowLanguage === lang && styles.activeTimeChip]}
+                                        style={[styles.languageChip, { backgroundColor: colors.surface, borderColor: colors.border }, selectedShowLanguage === lang && styles.activeTimeChip]}
                                         onPress={() => setSelectedShowLanguage(lang)}
                                     >
-                                        <Text style={[styles.timeText, selectedShowLanguage === lang && { color: '#FFF' }]}>{lang}</Text>
+                                        <Text style={[styles.timeText, { color: colors.textSecondary }, selectedShowLanguage === lang && { color: '#FFF' }]}>{lang}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
 
                             {/* Price Selection */}
-                            <Text style={styles.label}>BASE TICKET PRICE (₹)</Text>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>BASE TICKET PRICE (₹)</Text>
                             <TextInput
-                                style={[styles.modalInput, { marginBottom: 8 }]}
+                                style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, marginBottom: 8 }]}
                                 placeholder="e.g. 150 (Regular)"
-                                placeholderTextColor="#6B7280"
+                                placeholderTextColor={colors.textSecondary}
                                 keyboardType="numeric"
                                 value={ticketPrice}
                                 onChangeText={setTicketPrice}
                             />
-                            <Text style={{ color: '#9CA3AF', fontSize: 13, marginBottom: 24 }}>
+                            <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 24 }}>
                                 Premium (+₹100) and Recliner (+₹200) prices are automatically calculated based on this base price.
                             </Text>
 
                             <View style={styles.selectedTimeList}>
                                 {selectedTimes.map(time => (
-                                    <View key={time} style={styles.selectedTimeChip}>
-                                        <Text style={styles.selectedTimeText}>{time}</Text>
+                                    <View key={time} style={[styles.selectedTimeChip, { backgroundColor: isDark ? '#2E2E40' : '#F3E8FF', borderColor: '#8A2BE2' }]}>
+                                        <Text style={[styles.selectedTimeText, { color: isDark ? '#FFF' : '#8A2BE2' }]}>{time}</Text>
                                         <TouchableOpacity onPress={() => toggleTime(time)}>
-                                            <X size={14} color="#9CA3AF" style={{ marginLeft: 6 }} />
+                                            <X size={14} color={isDark ? "#9CA3AF" : "#8A2BE2"} style={{ marginLeft: 6 }} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -710,7 +692,7 @@ export default function ShowsScreen() {
                         </ScrollView>
                     </KeyboardAvoidingView>
 
-                    <View style={styles.footer}>
+                    <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
                         <TouchableOpacity style={styles.publishButton} onPress={handlePublishShows} disabled={submitting}>
                             {submitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.publishText}>PUBLISH SHOWTIMES</Text>}
                         </TouchableOpacity>
@@ -723,7 +705,18 @@ export default function ShowsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0B0B15' },
-    scrollContent: { padding: 20, paddingBottom: 20 },
+    fixedHeader: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 6,
+        borderBottomWidth: 0, // No outline
+    },
+    screenTitle: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        letterSpacing: 0.3,
+    },
+    scrollContent: { padding: 20, paddingTop: 4, paddingBottom: 20 },
 
     // Header
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },

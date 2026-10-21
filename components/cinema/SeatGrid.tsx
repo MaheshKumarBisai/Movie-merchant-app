@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 interface SeatGridProps {
     rows: number;
@@ -9,6 +10,7 @@ interface SeatGridProps {
 }
 
 export const SeatGrid = ({ rows, cols, blockedSeats, onToggleSeat }: SeatGridProps) => {
+    const { colors, isDark } = useTheme();
 
     // Generate row labels (A, B, C...)
     const getRowLabel = (index: number) => {
@@ -35,13 +37,13 @@ export const SeatGrid = ({ rows, cols, blockedSeats, onToggleSeat }: SeatGridPro
                         ]}
                         onPress={() => onToggleSeat(seatId)}
                     >
-                        <Text style={styles.seatText}>{seatId}</Text>
+                        <Text style={[styles.seatText, { color: colors.text }]}>{seatId}</Text>
                     </TouchableOpacity>
                 );
             }
             grid.push(
                 <View key={`row-${r}`} style={styles.row}>
-                    <Text style={styles.rowLabel}>{rowLabel}</Text>
+                    <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{rowLabel}</Text>
                     <View style={styles.seatsContainer}>
                         {rowSeats}
                     </View>
@@ -52,9 +54,9 @@ export const SeatGrid = ({ rows, cols, blockedSeats, onToggleSeat }: SeatGridPro
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.screen}>
-                <Text style={styles.screenText}>SCREEN</Text>
+        <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.screen, { backgroundColor: isDark ? 'rgba(138, 43, 226, 0.2)' : 'rgba(138, 43, 226, 0.12)' }]}>
+                <Text style={[styles.screenText, { color: colors.textSecondary }]}>SCREEN</Text>
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -62,19 +64,6 @@ export const SeatGrid = ({ rows, cols, blockedSeats, onToggleSeat }: SeatGridPro
                     {renderGrid()}
                 </View>
             </ScrollView>
-
-            <View style={styles.legend}>
-                <View style={styles.legendItem}>
-                    <View style={[styles.dot, styles.availableSeat]} />
-                    <Text style={styles.legendText}>Available</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.dot, styles.blockedSeat]} />
-                    <Text style={styles.legendText}>Maintenance</Text>
-                </View>
-            </View>
-
-            <Text style={styles.hint}>TAP A SEAT TO TOGGLE STATUS</Text>
         </View>
     );
 };

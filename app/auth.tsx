@@ -5,21 +5,25 @@ import { StatusBar } from 'expo-status-bar';
 import { Mail, Lock, Phone, ChevronLeft, Ticket, Eye, EyeOff, Check, Store } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedInput } from '../components/ui/ThemedInput';
 import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { endpoints } from '../config/api';
 
 import { CustomAlert } from '../components/ui/CustomAlert';
+import { useTheme } from '../context/ThemeContext';
 
 type AuthStep = 'EMAIL' | 'OTP' | 'PASSWORD';
 
 const { width } = Dimensions.get('window');
 
 export default function AuthScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const params = useLocalSearchParams();
     const initialMode = params.mode === 'signup' ? 'signup' : 'signin';
+    const { colors, isDark } = useTheme();
 
     const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(initialMode);
 
@@ -137,7 +141,11 @@ export default function AuthScreen() {
                 }),
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'Failed to send OTP');
+            if (mode === 'signup' && data.is_existing_user) {
+                showAlert('info', 'Already Registered', 'This email is already registered. Please sign in instead.', 'Sign In', () => toggleMode('signin'));
+                setLoading(false);
+                return;
+            }
 
             setStep('OTP');
             showAlert('success', 'OTP Sent', 'Please check your email for the verification code.');
@@ -187,13 +195,7 @@ export default function AuthScreen() {
                 }
             } else {
                 // Signed in via OTP
-                showAlert(
-                    'success',
-                    'Welcome back Partner!',
-                    'You can now set a password for future logins or proceed to your dashboard.',
-                    'Set Password',
-                    () => setStep('PASSWORD')
-                );
+                await saveSession(data);
             }
         } catch (error: any) {
             showAlert('error', 'Error', error.message || 'Verification failed');
@@ -265,14 +267,14 @@ export default function AuthScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar style={isDark ? "light" : "dark"} />
 
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ChevronLeft color="#FFF" size={28} />
+                    <ChevronLeft color={colors.text} size={28} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Merchant Portal</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Merchant Portal</Text>
                 <View style={{ width: 28 }} />
             </View>
 
@@ -291,16 +293,16 @@ export default function AuthScreen() {
                         </LinearGradient>
                     </View>
 
-                    <Text style={styles.welcomeTitle}>
+                    <Text style={[styles.welcomeTitle, { color: colors.text }]}>
                         {mode === 'signin' ? 'Partner Login' : 'Register Cinema'}
                     </Text>
 
-                    <View style={styles.tabContainer}>
+                    <View style={[styles.tabContainer, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                         <TouchableOpacity style={[styles.tab, mode === 'signin' && styles.activeTab]} onPress={() => toggleMode('signin')}>
-                            <Text style={[styles.tabText, mode === 'signin' && styles.activeTabText]}>Sign In</Text>
+                            <Text style={[styles.tabText, { color: colors.textSecondary }, mode === 'signin' && styles.activeTabText]}>Sign In</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.tab, mode === 'signup' && styles.activeTab]} onPress={() => toggleMode('signup')}>
-                            <Text style={[styles.tabText, mode === 'signup' && styles.activeTabText]}>Sign Up</Text>
+                            <Text style={[styles.tabText, { color: colors.textSecondary }, mode === 'signup' && styles.activeTabText]}>Sign Up</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -311,7 +313,7 @@ export default function AuthScreen() {
                             </Text>
                         )}
 
-                        <Text style={styles.label}>Email Address</Text>
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>Email Address</Text>
                         <ThemedInput
                             icon={Mail}
                             placeholder="Enter email address"
@@ -448,7 +450,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0B0B15' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 20 },
     backButton: { padding: 4 },
     headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '600' },
     scrollContent: { paddingHorizontal: width * 0.06, paddingBottom: 40 },
@@ -461,9 +463,9 @@ const styles = StyleSheet.create({
     tabText: { color: '#9CA3AF', fontWeight: '600', fontSize: 16 },
     activeTabText: { color: '#FFF' },
     formContainer: { marginBottom: 32 },
-    label: { color: '#E5E7EB', marginBottom: 8, fontSize: 14, fontWeight: '500' },
-    linkText: { color: '#A855F7', fontSize: 14, fontWeight: '500' },
+    label: { marginBottom: 8, fontSize: 14, fontWeight: '500' },
+    linkText: { color: '#8A2BE2', fontSize: 14, fontWeight: '600' },
     dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: '#2D2D3F' },
-    dividerText: { color: '#6B7280', paddingHorizontal: 16, fontSize: 12, fontWeight: '600' },
+    dividerLine: { flex: 1, height: 1 },
+    dividerText: { paddingHorizontal: 16, fontSize: 12, fontWeight: '600' },
 });

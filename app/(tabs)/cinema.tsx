@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Minus, Plus, Save, Settings, MapPin, Building2, Pencil, Trash2, ChevronLeft } from 'lucide-react-native';
+import { Minus, Plus, Save, MapPin, Building2, Pencil, Trash2, ChevronLeft, ChevronDown } from 'lucide-react-native';
 import { SeatGrid } from '../../components/cinema/SeatGrid';
+import { CityDropdownPicker } from '../../components/ui/CityDropdownPicker';
 import * as SecureStore from 'expo-secure-store';
 import { endpoints } from '../../config/api';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function CinemaScreen() {
     const router = useRouter();
+    const { colors, isDark } = useTheme();
     // Stages: 'loading' | 'list_theatres' | 'create_theatre' | 'add_hall' | 'edit_theatre'
     const [viewState, setViewState] = useState('loading');
 
@@ -300,12 +303,12 @@ export default function CinemaScreen() {
 
     if (viewState === 'create_theatre') {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()}>
-                        <Text style={styles.backButton}>{'<'}</Text>
+                        <ChevronLeft size={24} color={colors.text} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Setup Cinema Profile</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Setup Theatre Profile</Text>
                     <View style={{ width: 24 }} />
                 </View>
 
@@ -318,31 +321,25 @@ export default function CinemaScreen() {
                         contentContainerStyle={styles.content}
                         keyboardShouldPersistTaps="handled"
                     >
-                        <Text style={styles.subtext}>First, let's set up your cinema details.</Text>
+                        <Text style={[styles.subtext, { color: colors.textSecondary }]}>First, let's set up your theatre details and location.</Text>
 
-                        <Text style={styles.label}>Cinema Name</Text>
-                        <View style={styles.inputContainer}>
-                            <Building2 color="#9CA3AF" size={20} style={{ marginRight: 10 }} />
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>Theatre Name</Text>
+                        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <Building2 color="#8A2BE2" size={20} style={{ marginRight: 10 }} />
                             <TextInput
-                                style={styles.inputField}
-                                placeholder="e.g. Grand Cinema"
-                                placeholderTextColor="#4B5563"
+                                style={[styles.inputField, { color: colors.text }]}
+                                placeholder="e.g. Sudarshan 35mm, PVR, INOX"
+                                placeholderTextColor={colors.textSecondary}
                                 value={newTheatreName}
                                 onChangeText={setNewTheatreName}
                             />
                         </View>
 
-                        <Text style={styles.label}>City</Text>
-                        <View style={styles.inputContainer}>
-                            <MapPin color="#9CA3AF" size={20} style={{ marginRight: 10 }} />
-                            <TextInput
-                                style={styles.inputField}
-                                placeholder="e.g. Visakhapatnam"
-                                placeholderTextColor="#4B5563"
-                                value={newTheatreCity}
-                                onChangeText={setNewTheatreCity}
-                            />
-                        </View>
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>City / Location</Text>
+                        <CityDropdownPicker
+                            value={newTheatreCity}
+                            onChangeCity={setNewTheatreCity}
+                        />
 
                         <TouchableOpacity style={styles.createButton} onPress={handleCreateTheatre} disabled={loading}>
                             {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>Continue</Text>}
@@ -355,12 +352,12 @@ export default function CinemaScreen() {
 
     if (viewState === 'edit_theatre' && editingTheatre) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => { setEditingTheatre(null); setViewState('list_theatres'); }}>
-                        <ChevronLeft size={24} color="#FFF" />
+                        <ChevronLeft size={24} color={colors.text} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Edit Cinema</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Edit Theatre</Text>
                     <View style={{ width: 24 }} />
                 </View>
 
@@ -373,31 +370,25 @@ export default function CinemaScreen() {
                         contentContainerStyle={styles.content}
                         keyboardShouldPersistTaps="handled"
                     >
-                        <Text style={styles.subtext}>Update your cinema details below.</Text>
+                        <Text style={[styles.subtext, { color: colors.textSecondary }]}>Update your theatre details and location below.</Text>
 
-                        <Text style={styles.label}>Cinema Name</Text>
-                        <View style={styles.inputContainer}>
-                            <Building2 color="#9CA3AF" size={20} style={{ marginRight: 10 }} />
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>Theatre Name</Text>
+                        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <Building2 color="#8A2BE2" size={20} style={{ marginRight: 10 }} />
                             <TextInput
-                                style={styles.inputField}
-                                placeholder="e.g. Grand Cinema"
-                                placeholderTextColor="#4B5563"
+                                style={[styles.inputField, { color: colors.text }]}
+                                placeholder="e.g. Sudarshan 35mm, PVR, INOX"
+                                placeholderTextColor={colors.textSecondary}
                                 value={editTheatreName}
                                 onChangeText={setEditTheatreName}
                             />
                         </View>
 
-                        <Text style={styles.label}>City</Text>
-                        <View style={styles.inputContainer}>
-                            <MapPin color="#9CA3AF" size={20} style={{ marginRight: 10 }} />
-                            <TextInput
-                                style={styles.inputField}
-                                placeholder="e.g. Visakhapatnam"
-                                placeholderTextColor="#4B5563"
-                                value={editTheatreCity}
-                                onChangeText={setEditTheatreCity}
-                            />
-                        </View>
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>City / Location</Text>
+                        <CityDropdownPicker
+                            value={editTheatreCity}
+                            onChangeCity={setEditTheatreCity}
+                        />
 
                         <TouchableOpacity style={styles.createButton} onPress={handleEditTheatre} disabled={loading}>
                             {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>Save Changes</Text>}
@@ -410,17 +401,14 @@ export default function CinemaScreen() {
 
     if (viewState === 'list_theatres') {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={styles.header}>
-                    <Text style={[styles.headerTitle, { fontSize: 24 }]}>My Cinemas</Text>
-                    <TouchableOpacity style={styles.settingsButton}>
-                        <Settings size={24} color="#8A2BE2" />
-                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { fontSize: 24, color: colors.text }]}>Theatres</Text>
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                     {theatres.map((t, index) => (
-                        <View key={index} style={styles.theatreListCard}>
+                        <View key={index} style={[styles.theatreListCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <TouchableOpacity
                                 style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
                                 onPress={() => {
@@ -432,13 +420,13 @@ export default function CinemaScreen() {
                                     <Building2 size={24} color="#8A2BE2" />
                                 </View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={styles.theatreListName}>{t.name}</Text>
-                                    <Text style={styles.theatreListCity}>{t.city}</Text>
+                                    <Text style={[styles.theatreListName, { color: colors.text }]}>{t.name}</Text>
+                                    <Text style={[styles.theatreListCity, { color: colors.textSecondary }]}>{t.city}</Text>
                                 </View>
                             </TouchableOpacity>
                             <View style={styles.theatreActions}>
                                 <TouchableOpacity style={styles.actionBtn} onPress={() => startEditTheatre(t)}>
-                                    <Pencil size={16} color="#A855F7" />
+                                    <Pencil size={16} color="#8A2BE2" />
                                 </TouchableOpacity>
                                 <TouchableOpacity style={[styles.actionBtn, styles.deleteBtn]} onPress={() => handleDeleteTheatre(t)}>
                                     <Trash2 size={16} color="#EF4444" />
@@ -457,11 +445,11 @@ export default function CinemaScreen() {
                     ))}
 
                     <TouchableOpacity
-                        style={styles.addNewTheatreBtn}
+                        style={[styles.addNewTheatreBtn, { backgroundColor: isDark ? 'transparent' : '#F9F5FF' }]}
                         onPress={() => setViewState('create_theatre')}
                     >
                         <Plus size={20} color="#8A2BE2" />
-                        <Text style={styles.addNewTheatreText}>Add New Cinema</Text>
+                        <Text style={styles.addNewTheatreText}>Add New Theatre</Text>
                     </TouchableOpacity>
                 </ScrollView>
             </SafeAreaView>
@@ -469,18 +457,26 @@ export default function CinemaScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()}>
-                    <Text style={styles.backButton}>{'<'}</Text>
+                <TouchableOpacity 
+                    onPress={() => router.back()}
+                    style={[
+                        styles.iconBtn,
+                        {
+                            backgroundColor: colors.surface,
+                            borderColor: colors.border,
+                            borderWidth: 1,
+                        }
+                    ]}
+                >
+                    <ChevronLeft size={22} color={colors.text} />
                 </TouchableOpacity>
-                <View>
-                    <Text style={styles.headerTitle}>Add Theater Hall</Text>
-                    <Text style={styles.headerSubtitle}>{theatre?.name} • {theatre?.city}</Text>
+                <View style={{ alignItems: 'center', flex: 1, marginHorizontal: 8 }}>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Add Theater Hall</Text>
+                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>{theatre?.name} • {theatre?.city}</Text>
                 </View>
-                <TouchableOpacity style={styles.settingsButton}>
-                    <Settings size={24} color="#8A2BE2" />
-                </TouchableOpacity>
+                <View style={{ width: 40 }} />
             </View>
 
             <KeyboardAvoidingView
@@ -493,68 +489,72 @@ export default function CinemaScreen() {
                     keyboardShouldPersistTaps="handled"
                 >
 
-                    <Text style={styles.label}>Hall Name</Text>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Hall Name</Text>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                         placeholder="e.g. Grand Auditorium"
-                        placeholderTextColor="#4B5563"
+                        placeholderTextColor={colors.textSecondary}
                         value={hallName}
                         onChangeText={setHallName}
                     />
 
-                    <Text style={styles.label}>Technology</Text>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>Technology</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.techScroll}>
                         {['IMAX', 'Dolby Cinema', 'RealD 3D', '4DX'].map(tech => (
                             <TouchableOpacity
                                 key={tech}
-                                style={[styles.techChip, selectedTech === tech && styles.activeTechChip]}
+                                style={[
+                                    styles.techChip,
+                                    { backgroundColor: colors.surface, borderColor: colors.border },
+                                    selectedTech === tech && styles.activeTechChip
+                                ]}
                                 onPress={() => setSelectedTech(tech)}
                             >
-                                <Text style={[styles.techText, selectedTech === tech && styles.activeTechText]}>{tech}</Text>
+                                <Text style={[styles.techText, { color: selectedTech === tech ? '#FFF' : colors.text }]}>{tech}</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
 
-                    <View style={styles.dimensionsContainer}>
+                    <View style={[styles.dimensionsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <View style={styles.dimensionBox}>
-                            <Text style={styles.dimLabel}>ROWS</Text>
+                            <Text style={[styles.dimLabel, { color: colors.textSecondary }]}>ROWS</Text>
                             <View style={styles.counter}>
-                                <TouchableOpacity onPress={() => setRows(Math.max(4, rows - 1))} style={styles.counterBtn}>
-                                    <Minus size={16} color="#A855F7" />
+                                <TouchableOpacity onPress={() => setRows(Math.max(4, rows - 1))} style={[styles.counterBtn, { backgroundColor: isDark ? '#2D2D3F' : '#E5E7EB' }]}>
+                                    <Minus size={16} color="#8A2BE2" />
                                 </TouchableOpacity>
-                                <Text style={styles.counterText}>{rows}</Text>
-                                <TouchableOpacity onPress={() => setRows(Math.min(20, rows + 1))} style={styles.counterBtn}>
-                                    <Plus size={16} color="#A855F7" />
+                                <Text style={[styles.counterText, { color: colors.text }]}>{rows}</Text>
+                                <TouchableOpacity onPress={() => setRows(Math.min(20, rows + 1))} style={[styles.counterBtn, { backgroundColor: isDark ? '#2D2D3F' : '#E5E7EB' }]}>
+                                    <Plus size={16} color="#8A2BE2" />
                                 </TouchableOpacity>
                             </View>
                         </View>
                         <View style={styles.dimensionBox}>
-                            <Text style={styles.dimLabel}>COLS</Text>
+                            <Text style={[styles.dimLabel, { color: colors.textSecondary }]}>COLS</Text>
                             <View style={styles.counter}>
-                                <TouchableOpacity onPress={() => setCols(Math.max(4, cols - 1))} style={styles.counterBtn}>
-                                    <Minus size={16} color="#A855F7" />
+                                <TouchableOpacity onPress={() => setCols(Math.max(4, cols - 1))} style={[styles.counterBtn, { backgroundColor: isDark ? '#2D2D3F' : '#E5E7EB' }]}>
+                                    <Minus size={16} color="#8A2BE2" />
                                 </TouchableOpacity>
-                                <Text style={styles.counterText}>{cols}</Text>
-                                <TouchableOpacity onPress={() => setCols(Math.min(15, cols + 1))} style={styles.counterBtn}>
-                                    <Plus size={16} color="#A855F7" />
+                                <Text style={[styles.counterText, { color: colors.text }]}>{cols}</Text>
+                                <TouchableOpacity onPress={() => setCols(Math.min(15, cols + 1))} style={[styles.counterBtn, { backgroundColor: isDark ? '#2D2D3F' : '#E5E7EB' }]}>
+                                    <Plus size={16} color="#8A2BE2" />
                                 </TouchableOpacity>
                             </View>
                         </View>
                         <View style={[styles.dimensionBox, { alignItems: 'flex-end', paddingRight: 10 }]}>
-                            <Text style={styles.dimLabel}>TOTAL SEATS</Text>
+                            <Text style={[styles.dimLabel, { color: colors.textSecondary }]}>TOTAL SEATS</Text>
                             <Text style={styles.totalSeats}>{rows * cols}</Text>
                         </View>
                     </View>
 
-                    <Text style={styles.sectionTitle}>Interactive Seat Map</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Interactive Seat Map</Text>
                     <View style={styles.gridHeader}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <View style={[styles.dot, styles.availableDot]} />
-                            <Text style={styles.statusText}>Available</Text>
+                            <Text style={[styles.statusText, { color: colors.textSecondary }]}>Available</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <View style={[styles.dot, styles.blockedDot]} />
-                            <Text style={styles.statusText}>Maintenance</Text>
+                            <Text style={[styles.statusText, { color: colors.textSecondary }]}>Maintenance</Text>
                         </View>
                     </View>
 
@@ -565,11 +565,11 @@ export default function CinemaScreen() {
                         onToggleSeat={toggleSeat}
                     />
 
-                    <Text style={styles.sectionTitle}>Global Visibility</Text>
-                    <View style={styles.visibilityCard}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Global Visibility</Text>
+                    <View style={[styles.visibilityCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <View>
-                            <Text style={styles.visTitle}>Hall Available</Text>
-                            <Text style={styles.visSub}>Visible to customers for booking</Text>
+                            <Text style={[styles.visTitle, { color: colors.text }]}>Hall Available</Text>
+                            <Text style={[styles.visSub, { color: colors.textSecondary }]}>Visible to customers for booking</Text>
                         </View>
                         <Switch
                             value={isAvailable}
@@ -579,21 +579,20 @@ export default function CinemaScreen() {
                         />
                     </View>
 
+                    {/* Integrated Add Theater Hall button mixed directly with the screen */}
+                    <TouchableOpacity style={styles.saveButton} onPress={handleSaveHall} disabled={loading}>
+                        {loading ? (
+                            <ActivityIndicator color="#FFF" />
+                        ) : (
+                            <>
+                                <Plus size={20} color="#FFF" style={{ marginRight: 8 }} />
+                                <Text style={styles.saveText}>Add Theater Hall</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+
                 </ScrollView>
             </KeyboardAvoidingView>
-
-            <View style={styles.footer}>
-                <TouchableOpacity style={styles.saveButton} onPress={handleSaveHall} disabled={loading}>
-                    {loading ? (
-                        <ActivityIndicator color="#FFF" />
-                    ) : (
-                        <>
-                            <Save size={20} color="#FFF" style={{ marginRight: 8 }} />
-                            <Text style={styles.saveText}>Save Theater</Text>
-                        </>
-                    )}
-                </TouchableOpacity>
-            </View>
         </SafeAreaView>
     );
 }
@@ -604,13 +603,14 @@ const styles = StyleSheet.create({
     backButton: { color: '#FFF', fontSize: 24 },
     headerTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
     headerSubtitle: { color: '#9CA3AF', fontSize: 12 },
-    settingsButton: { padding: 4, backgroundColor: '#1F1F2E', borderRadius: 8 },
+    iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     content: { padding: 20 },
-    scrollContent: { padding: 20, paddingBottom: 100 },
+    scrollContent: { padding: 20, paddingBottom: 40 },
     subtext: { color: '#9CA3AF', marginBottom: 32 },
     label: { color: '#9CA3AF', marginBottom: 8, fontSize: 14 },
     inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1F1F2E', borderRadius: 12, paddingHorizontal: 16, marginBottom: 24, borderWidth: 1, borderColor: '#2D2D3F', height: 56 },
     inputField: { flex: 1, color: '#FFF', fontSize: 16 },
+    inputFieldText: { fontSize: 16, flex: 1 },
     createButton: { backgroundColor: '#8A2BE2', padding: 18, borderRadius: 16, alignItems: 'center', marginTop: 24 },
 
     input: { backgroundColor: '#1F1F2E', borderRadius: 12, padding: 16, color: '#FFF', marginBottom: 24, borderWidth: 1, borderColor: '#2D2D3F' },
@@ -635,8 +635,7 @@ const styles = StyleSheet.create({
     visibilityCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1F1F2E', padding: 16, borderRadius: 16, marginBottom: 24, borderWidth: 1, borderColor: '#2D2D3F' },
     visTitle: { color: '#FFF', fontSize: 16, fontWeight: '600' },
     visSub: { color: '#9CA3AF', fontSize: 12 },
-    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: '#0B0B15', borderTopWidth: 1, borderTopColor: '#1F1F2E' },
-    saveButton: { backgroundColor: '#8A2BE2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 16 },
+    saveButton: { backgroundColor: '#8A2BE2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 16, marginTop: 12, marginBottom: 20 },
     saveText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
 
     // List Theatres Styles

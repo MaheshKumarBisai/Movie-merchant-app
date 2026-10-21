@@ -1,17 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../context/ThemeContext';
 
 export const RevenueCard = ({ amount = 0 }: { amount?: number }) => {
+    const { colors, isDark } = useTheme();
+
     return (
-        <View style={styles.wrapper}>
+        <View style={[styles.wrapper, { backgroundColor: colors.border }]}>
             <LinearGradient
-                colors={['#1F1F2E', '#14141F']}
+                colors={isDark ? ['#1F1F2E', '#14141F'] : ['#FAF5FF', '#F3E8FF']}
                 style={styles.container}
             >
-                <Text style={styles.label}>Today's Revenue</Text>
+                <Text style={[styles.label, { color: isDark ? '#9CA3AF' : '#6B21A8' }]}>Today's Revenue</Text>
 
-                <Text style={styles.amount}>
+                <Text style={[styles.amount, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                     {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount)}
                 </Text>
             </LinearGradient>
@@ -39,9 +42,6 @@ const styles = StyleSheet.create({
     amount: {
         fontSize: 32,
         fontWeight: 'bold',
-        color: '#FFF',
-        textShadowColor: 'rgba(139, 92, 246, 0.5)',
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 10,
+        color: '#000000',
     },
 });

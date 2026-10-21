@@ -5,6 +5,7 @@ import { ChevronLeft, Bell, CheckCircle2, Ticket, Trash2 } from 'lucide-react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 interface Notification {
     id: number;
@@ -19,6 +20,7 @@ const { width } = Dimensions.get('window');
 export default function MerchantNotificationsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { colors, isDark } = useTheme();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -95,8 +97,35 @@ export default function MerchantNotificationsScreen() {
         fetchNotifications();
     };
 
+    const markSingleRead = async (id: number) => {
+        try {
+            const token = await SecureStore.getItemAsync('token');
+            if (token) {
+                await fetch(`${endpoints.notifications}/${id}/read`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            }
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+        } catch (error) {
+            console.error('Failed to mark read', error);
+        }
+    };
+
     const renderItem = ({ item }: { item: Notification }) => (
-        <View style={[styles.notificationCard, !item.is_read && styles.unreadCard]}>
+        <TouchableOpacity 
+            activeOpacity={0.8}
+            onPress={() => {
+                if (!item.is_read) {
+                    markSingleRead(item.id);
+                }
+            }}
+            style={[
+                styles.notificationCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                !item.is_read && { borderColor: '#8A2BE2', backgroundColor: isDark ? '#161625' : '#F3E8FF' }
+            ]}
+        >
             <View style={[styles.iconContainer, { backgroundColor: item.title.includes('Booked') ? 'rgba(34, 197, 94, 0.1)' : 'rgba(138, 43, 226, 0.1)' }]}>
                 {item.title.includes('Booked') ? (
                     <Ticket color="#22C55E" size={24} />
@@ -106,34 +135,23 @@ export default function MerchantNotificationsScreen() {
             </View>
             <View style={styles.content}>
                 <View style={styles.headerRow}>
-                    <Text style={styles.title}>{item.title}</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>{item.title}</Text>
                     {!item.is_read && <View style={styles.unreadDot} />}
                 </View>
-                <Text style={styles.message}>{item.message}</Text>
-                <Text style={styles.time}>{new Date(item.created_at).toLocaleString()}</Text>
+                <Text style={[styles.message, { color: colors.textSecondary }]}>{item.message}</Text>
+                <Text style={[styles.time, { color: colors.textSecondary }]}>{new Date(item.created_at).toLocaleString()}</Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+            {/* Header without outline or action buttons */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ChevronLeft color="#FFF" size={28} />
+                    <ChevronLeft color={colors.text} size={28} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Notifications</Text>
-                <View style={styles.headerActions}>
-                    {notifications.length > 0 && (
-                        <>
-                            <TouchableOpacity onPress={markAllRead} style={{ marginRight: 16 }}>
-                                <Text style={styles.markRead}>Read All</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={clearAllNotifications}>
-                                <Trash2 color="#EF4444" size={20} />
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </View>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
             </View>
 
             {loading ? (
@@ -150,14 +168,27 @@ export default function MerchantNotificationsScreen() {
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8A2BE2" />
                     }
+                    ListFooterComponent={
+                        notifications.length > 0 ? (
+                            <View style={styles.footerContainer}>
+                                <TouchableOpacity 
+                                    onPress={clearAllNotifications}
+                                    activeOpacity={0.6}
+                                    style={styles.clearAllBtn}
+                                >
+                                    <Text style={styles.clearAllText}>Clear All</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : null
+                    }
                 />
             ) : (
                 <View style={styles.center}>
-                    <View style={styles.emptyIcon}>
-                        <Bell color="#3F3F46" size={64} />
+                    <View style={[styles.emptyIcon, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+                        <Bell color={isDark ? "#3F3F46" : "#A78BFA"} size={64} />
                     </View>
-                    <Text style={styles.emptyTitle}>No Notifications Yet</Text>
-                    <Text style={styles.emptySubtitle}>We'll notify you when something important happens.</Text>
+                    <Text style={[styles.emptyTitle, { color: colors.text }]}>No Notifications Yet</Text>
+                    <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>We'll notify you when something important happens.</Text>
                 </View>
             )}
         </View>
@@ -169,23 +200,19 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: width * 0.04,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#1F1F2E',
+        paddingVertical: 12,
+        borderBottomWidth: 0, // No outline
     },
     backButton: { width: 40, height: 40, justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', flex: 1, marginLeft: 8 },
-    headerActions: { flexDirection: 'row', alignItems: 'center' },
-    markRead: { color: '#8A2BE2', fontSize: 13, fontWeight: '600' },
-    list: { padding: width * 0.04 },
+    headerTitle: { color: '#FFF', fontSize: 24, fontWeight: 'bold', marginLeft: 4 },
+    list: { padding: width * 0.04, paddingTop: 8 },
     notificationCard: {
         flexDirection: 'row',
         backgroundColor: '#1F1F2E',
-        borderRadius: 16,
+        borderRadius: 18,
         padding: 16,
-        marginBottom: 12,
+        marginBottom: 14,
         borderWidth: 1,
         borderColor: 'transparent',
     },
@@ -196,10 +223,10 @@ const styles = StyleSheet.create({
     iconContainer: {
         width: 48,
         height: 48,
-        borderRadius: 12,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 16,
+        marginRight: 14,
     },
     content: { flex: 1 },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
@@ -207,6 +234,21 @@ const styles = StyleSheet.create({
     unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#8A2BE2' },
     message: { color: '#9CA3AF', fontSize: 14, lineHeight: 20, marginBottom: 8 },
     time: { color: '#6B7280', fontSize: 12 },
+    footerContainer: {
+        paddingTop: 14,
+        paddingBottom: 40,
+        alignItems: 'flex-end', // Right side
+        paddingHorizontal: 4,
+    },
+    clearAllBtn: {
+        paddingVertical: 6,
+        paddingHorizontal: 8,
+    },
+    clearAllText: {
+        color: '#EF4444',
+        fontSize: 13,
+        fontWeight: '600',
+    },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     emptyIcon: {
         width: 120,

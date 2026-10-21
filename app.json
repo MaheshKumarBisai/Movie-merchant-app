@@ -27,6 +27,13 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.maheshb.showgomerchant"
     },
+    "androidStatusBar": {
+      "translucent": true,
+      "backgroundColor": "#00000000"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#00000000"
+    },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
@@ -59,7 +66,11 @@
             "allowsArbitraryLoads": true
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

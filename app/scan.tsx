@@ -5,11 +5,13 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react-native';
 import * as SecureStore from 'expo-secure-store';
 import { endpoints } from '../config/api';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 export default function ScanScreen() {
     const router = useRouter();
+    const { colors, isDark } = useTheme();
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -84,12 +86,12 @@ export default function ScanScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                    <ArrowLeft color="#FFF" size={24} />
+                <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+                    <ArrowLeft color={colors.text} size={24} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Scan Ticket</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Scan Ticket</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -136,7 +138,11 @@ const styles = StyleSheet.create({
     camera: { flex: 1 },
 
     overlay: {
-        ...StyleSheet.absoluteFillObject,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -163,7 +169,11 @@ const styles = StyleSheet.create({
     buttonText: { color: '#FFF', fontWeight: 'bold' },
 
     loadingOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.8)',
         justifyContent: 'center',
         alignItems: 'center',
