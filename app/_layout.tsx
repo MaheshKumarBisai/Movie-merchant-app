@@ -1,6 +1,5 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, StatusBar as RNStatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { registerForPushNotificationsAsync, savePushToken } from '../config/notifications';
@@ -12,10 +11,6 @@ function RootLayoutNav() {
   useEffect(() => {
     async function setupNotifications() {
       try {
-        if (Platform.OS === 'android') {
-          RNStatusBar.setTranslucent(true);
-          RNStatusBar.setBackgroundColor('transparent');
-        }
         const token = await registerForPushNotificationsAsync();
         if (token) {
           await savePushToken(token);
